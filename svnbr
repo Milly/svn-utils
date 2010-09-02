@@ -133,9 +133,8 @@ class Branch
       from = tag_name
       from_uri = repo(:root) << "/tags/" << tag_name
     end
-
-    svn_exec("cp -m 'make #{name} branch from #{from} #{additional_message}' %s %s" %
-             [from_uri,uri(name)],true) unless exists?(name)
+    message = escape_message("make #{name} branch from #{from}. #{additional_message}")
+    svn_exec("cp -m '#{message}' #{from_uri} #{uri(name)}",true) unless exists?(name)
     unless current == name
       rootdir
       svn_exec("sw --ignore-externals " << uri(name),true)
@@ -148,8 +147,8 @@ class Branch
     from_name = current
     from_uri = uri(current)
     tag_uri = repo(:root) << "/tags/" << tag_name
-    svn_exec("cp -m 'make #{tag_name} tag from #{from_name}. #{additional_message}' %s %s" %
-             [from_uri,tag_uri],true)
+    message = escape_message("make #{tag_name} tag from #{from_name}. #{additional_message}")
+    svn_exec("cp -m '#{message}' #{from_uri} #{tag_uri}",true)
   end
 
   def merge_cs name,cs
@@ -177,6 +176,10 @@ private
   def svn_exec param,show = false
     puts "svn #{param}" if show
     system("svn #{param}")
+  end
+
+  def escape_message(msg)
+    msg.gsub(/'+/, "'\"\\0\"'").strip
   end
 end
 
