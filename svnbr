@@ -148,86 +148,103 @@ private
   end
 end
 
-opt = OptionParser.new
-br = Branch.new
-cmd = ARGV.shift
+module Commands
+  class << self
+  private
+    def alias_module_function(new, old)
+      alias_method new, old
+      module_function new
+    end
 
-if cmd == "sw" or cmd == "switch"
-  tag = nil
-  opt.on('--from-tag=VAL') { |v| tag = v }
-  additional_message = nil
-  opt.on('--additional-message=VAL') { |v| additional_message = v }
-  opt.parse!
+    def br
+      @@br ||= Branch.new
+    end
 
-  name = ARGV.shift
-  br.switch(name,tag,additional_message)
-end
-
-if cmd == "tag"
-  name = ARGV.shift
-  additional_message = nil
-  opt.on('--additional-message=VAL') { |v| additional_message = v }
-  opt.parse!
-  if name
-    br.tag(name,additional_message)
-  else
-    cmd = "tags"
+    def opt
+      @@opt = OptionParser.new
+    end
   end
-end
 
-if cmd == "mv"
-  force = false
-  opt.on('--force') { force = true }
-  opt.parse!
-  from = ARGV.shift
-  to  = ARGV.shift
-  br.mv(from,to,force)
-end
+module_function
+  def switch
+    tag = nil
+    opt.on('--from-tag=VAL') { |v| tag = v }
+    additional_message = nil
+    opt.on('--additional-message=VAL') { |v| additional_message = v }
+    opt.parse!
 
-if cmd == "rm" or cmd == "del"
-  name = ARGV.shift
-  br.rm(name)
-end
-
-if cmd == "log"
-  name = ARGV.shift
-  name = br.current unless name
-  br.log(name)
-end
-
-if cmd == "diff"
-  name = ARGV.shift
-  file = ARGV.shift
-  br.diff(name,file)
-end
-
-if cmd == "tags"
-  br.tags.each do |i|
-    mark = (i == br.current) ? '* ' : '  '
-    puts mark << i
+    name = ARGV.shift
+    br.switch(name,tag,additional_message)
   end
-end
+  alias_module_function :sw, :switch
 
-if cmd == "merge"
-  mode = nil;r=nil;
-  opt.on('-r=VAL') { |v| r = v ; mode = "r" }
-  opt.on('-c=VAL') { |v| r = v ; mode = "c" }
-  opt.parse!
-  name = ARGV.shift
-  br.merge_rev(name,r) if mode == "r"
-  br.merge_cs(name,r)  if mode == "c"
-end
-
-if !cmd or cmd == "list" or cmd == "branches"
-  br.list.each do |i|
-    mark = (i == br.current) ? '* ' : '  '
-    puts mark << i
+  def tag
+    name = ARGV.shift
+    additional_message = nil
+    opt.on('--additional-message=VAL') { |v| additional_message = v }
+    opt.parse!
+    if name
+      br.tag(name,additional_message)
+    else
+      tags
+    end
   end
-end
 
-if cmd == "help"
-  i = 0
-  puts <<EOF.gsub(/^(\s*)%(?=\.)/m) { $1 + (i+=1).to_s }
+  def mv
+    force = false
+    opt.on('--force') { force = true }
+    opt.parse!
+    from = ARGV.shift
+    to  = ARGV.shift
+    br.mv(from,to,force)
+  end
+
+  def rm
+    name = ARGV.shift
+    br.rm(name)
+  end
+  alias_module_function :del, :rm
+
+  def log
+    name = ARGV.shift
+    name = br.current unless name
+    br.log(name)
+  end
+
+  def diff
+    name = ARGV.shift
+    file = ARGV.shift
+    br.diff(name,file)
+  end
+
+  def tags
+    br.tags.each do |i|
+      mark = (i == br.current) ? '* ' : '  '
+      puts mark << i
+    end
+  end
+
+  def merge
+    mode = nil;r=nil;
+    opt.on('-r=VAL') { |v| r = v ; mode = "r" }
+    opt.on('-c=VAL') { |v| r = v ; mode = "c" }
+    opt.parse!
+    name = ARGV.shift
+    br.merge_rev(name,r) if mode == "r"
+    br.merge_cs(name,r)  if mode == "c"
+  end
+
+  def list
+    br.list.each do |i|
+      mark = (i == br.current) ? '* ' : '  '
+      puts mark << i
+    end
+  end
+  alias_module_function :branches, :list
+
+  def help
+    i = 0
+    puts <<EOF.gsub(/^(\s*)%(?=\.)/m) { $1 + (i+=1).to_s }
 Usage: svnbr <subcommand> [<option>] [<args>]
 
  <branch-name> :  /branches/<branch-name> or trunk
@@ -263,4 +280,13 @@ Usage: svnbr <subcommand> [<option>] [<args>]
  %. diff
  > svnbr diff (<branch-name> | <tag-name>) <file>
 EOF
+    exit -1
+  end
+end
+
+cmd = ARGV.shift || 'list'
+if Commands.respond_to? cmd
+  Commands.send(cmd)
+else
+  Commands.help
 end
